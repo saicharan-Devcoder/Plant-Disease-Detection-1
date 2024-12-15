@@ -33,44 +33,36 @@ AI Engine
             </div>
             <div class="col mx-auto">
                 <div class="p-5 bg-white shadow rounded-lg" style="height: 95%;"><img
-                        src="https://www.pngjoy.com/pngl/250/4840262_plants-png-indoors-tropical-plant-png-hd-png.png "
+                        src="https://media.istockphoto.com/id/1370772148/photo/track-and-mountains-in-valle-del-lago-somiedo-nature-park-asturias-spain.jpg"
                         height="300" alt="" width="200" class="d-block mx-auto mb-4 rounded-pill">
 
                     <!-- Default bootstrap file upload-->
 
-                    <form action="/submit" method="POST" enctype="multipart/form-data">
-                        <div class="custom-file overflow-hidden mb-4">
-                            <input type="file" id="actual-btn" hidden name="image" />
-                            <label for="actual-btn">Choose File</label>
-                            <label id="camera-btn">Open Camera</label>
-
-                            </br>
-                            <span id="file-chosen">No file chosen</span>
-                        </div>
-
-                        <!-- Camera feed container (hidden initially) -->
-                        <div id="camera-container" style="display: none;">
-                            <video id="camera-feed" width="320" height="240" autoplay></video>
-                            <button type="button" id="capture-btn">Capture Photo</button>
-                        </div>
-
-                        <!-- Preview Image (will show the captured photo) -->
-                        <img id="preview" src="#" alt="Camera Photo Preview" style="display: none; max-width: 100%;" />
-
-
-                        <!-- End -->
-
-                        <h6 class="text-center mb-4 text-muted">
-                            Simply upload your plant's leaf image and then see the magic of AI.
-                        </h6>
-
-                        <!-- Custom bootstrap upload file-->
-                        <center>
-                            <a class="mx-2"><button type="submit" class="btn btn-outline-success">Submit</button></a>
-                        </center>
-                    </form>
-                    <!-- End -->
-
+                   
+                  <!-- Form for Uploading or Capturing Image -->
+                  <form id="uploadForm" action="/submit" method="POST" enctype="multipart/form-data">
+                    <!-- Upload Image -->
+                    <div>
+                        <label for="file-upload">Upload Image:</label>
+                        <input type="file" id="file-upload" name="uploaded_file" accept="image/*">
+                    </div>
+                    <br>
+                    
+                    <br>
+                    <!-- Canvas to Show Captured Image -->
+                    <div>
+                        <video id="camera" autoplay style="display:none;"></video>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <button type="button" id="capture-btn">Capture Image</button>
+                        <img id="captured-image" src="#" alt="Captured Image" style="display:none; width:200px;">
+                    </div>
+                    <br>
+                    <button type="submit">Submit</button>
+                </form>
+                <div id="resultContainer">
+                    <!-- Rendered HTML from server will appear here -->
+                </div>
+            
                 </div>
             </div>
             <div class="col mx-auto">
@@ -94,8 +86,66 @@ AI Engine
 </div>
 
 <script>
-    const actualBtn = document.getElementById('actual-btn');
+    // Elements
     const captureBtn = document.getElementById('capture-btn');
+    const resultContainer = document.getElementById('resultContainer');
+
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('canvas');
+        const capturedImage = document.getElementById('captured-image');
+        const form = document.getElementById('uploadForm');
+        let capturedBlob = null;
+
+        // Access camera and display video feed
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.style.display = 'block';
+                video.srcObject = stream;
+            })
+            .catch(err => console.error('Camera access denied:', err));
+
+        // Capture image from the video
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert the canvas content to a Blob (image file)
+            canvas.toBlob(blob => {
+                capturedBlob = new File([blob], 'captured_image.png', { type: 'image/png' });
+                capturedImage.src = URL.createObjectURL(blob);
+                capturedImage.style.display = 'block';
+                console.log("Image captured successfully!");
+            }, 'image/png');
+        });
+
+        // Append the captured image to the form before submission
+        form.addEventListener('submit', (e) => {
+            if (capturedBlob) {
+                const formData = new FormData(form);
+                formData.append('captured', capturedBlob); // Append captured image to form data
+
+                // Send the form data to the server
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(data => {
+                    console.log(data);
+                    document.open();          // Open the current document for writing
+                    document.write(data);     // Write the server-provided HTML into the current document
+                    document.close();
+                })
+                .catch(err => console.error('Error submitting form:', err));
+                
+                e.preventDefault(); // Prevent default form submission
+            }
+        });
+    
+    const actualBtn = document.getElementById('actual-btn');
+    // const captureBtn = document.getElementById('capture-btn');
 
     const fileChosen = document.getElementById('file-chosen');
 
@@ -133,6 +183,7 @@ AI Engine
     document.getElementById('capture-btn').addEventListener('click', function () {
         const cameraFeed = document.getElementById('camera-feed');
         const canvas = document.createElement('canvas');
+        console.log('canvas.......', canvas)
         const ctx = canvas.getContext('2d');
 
         // Set canvas dimensions to match the video feed dimensions
@@ -147,15 +198,20 @@ AI Engine
 
         // Create a new file from the data URL
         const imageBlob = dataURItoBlob(dataUrl);
+        // console.log('dataUrl.......', dataUrl)
         capturedFile = new File([imageBlob], "camera_image.jpg", { type: 'image/jpeg' });
 
         // Now you have a file object that you can use locally
+        console.log('file-chosen.......', capturedFile)
         document.getElementById('file-chosen').textContent = capturedFile.name;
 
         // Show the captured image preview
         const preview = document.getElementById('preview');
         preview.src = dataUrl;
         preview.style.display = 'block'; // Show the preview
+
+        console.log('dataUrl....',dataUrl)
+        document.getElementById('hidden-captured').value = capturedFile.name;
     });
 
     // Helper function to convert data URL to Blob
@@ -199,6 +255,8 @@ AI Engine
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
 
+
+   console.log('capture bbbbbbbb')
         // Set canvas size equal to video size
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -215,6 +273,7 @@ AI Engine
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         fileInput.files = dataTransfer.files;
+        
 
         // Hide the camera feed and display the chosen file text
         document.getElementById('camera-container').style.display = 'none';
